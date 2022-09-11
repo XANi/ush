@@ -18,13 +18,28 @@ func (b *WebBackend) Store(c *gin.Context) {
 		b.l.Warnf("could not store %s:%s", path, err)
 		return
 	}
-	n, err := io.Copy(writer, c.Request.Body)
+
+	// TODO exit if progress is too small
+	saved := int64(0)
+	for n, err := io.Copy(writer, c.Request.Body); n > 0; {
+		b.l.Infof("copied %d[%d]: %s", n, saved, err)
+		saved += n
+		if err == nil {
+			break
+		}
+		_ = err
+	}
+
+	if err != nil {
+		b.l.Warnf("error while writing %s:%s", path, err)
+	}
 	writer.Close()
 	reqLen, err := strconv.Atoi(c.Request.Header.Get("content-length"))
 	if err == nil {
-		if reqLen != int(n) {
-			b.l.Warnf("[%s]content-length: %d, saved: %d", path, reqLen, n)
+		if reqLen != int(saved) {
+			b.l.Warnf("[%s]content-length: %d, saved: %d", path, reqLen, saved)
 			c.String(http.StatusInternalServerError, "file size mismatch")
+			return
 		}
 	}
 

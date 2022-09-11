@@ -3,7 +3,9 @@ package main
 import (
 	"embed"
 	"fmt"
+	"github.com/XANi/toolbox/project-templates/go-gin-embedded/store"
 	"github.com/XANi/toolbox/project-templates/go-gin-embedded/store/file"
+	"github.com/XANi/toolbox/project-templates/go-gin-embedded/store/slow"
 	"github.com/XANi/toolbox/project-templates/go-gin-embedded/web"
 	"github.com/efigence/go-mon"
 	"github.com/urfave/cli"
@@ -82,6 +84,7 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{Name: "help, h", Usage: "show help"},
 		cli.BoolFlag{Name: "debug, d", Usage: "enable debug logs"},
+		cli.BoolFlag{Name: "slow, s", Usage: "be slow (for testing"},
 		cli.StringFlag{
 			Name:   "listen-addr",
 			Value:  "127.0.0.1:3001",
@@ -118,10 +121,15 @@ func main() {
 		} else {
 			log.Infof("data dir: %s", dir)
 		}
-		storage, err := file.New(file.Config{
+		var storage store.Store
+		var err error
+		storage, err = file.New(file.Config{
 			RootDir: dir,
 			Logger:  log,
 		})
+		if c.Bool("slow") {
+			storage = slow.New(storage)
+		}
 		if err != nil {
 			log.Panicf("error opening storage: %s", err)
 		}
