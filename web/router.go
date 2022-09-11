@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"github.com/XANi/toolbox/project-templates/go-gin-embedded/store"
 	"github.com/efigence/go-mon"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
@@ -14,16 +15,19 @@ import (
 )
 
 type WebBackend struct {
-	l   *zap.SugaredLogger
-	al  *zap.SugaredLogger
-	r   *gin.Engine
-	cfg *Config
+	l     *zap.SugaredLogger
+	al    *zap.SugaredLogger
+	r     *gin.Engine
+	store store.Store
+	cfg   *Config
 }
 
 type Config struct {
 	Logger       *zap.SugaredLogger `yaml:"-"`
 	AccessLogger *zap.SugaredLogger `yaml:"-"`
 	ListenAddr   string             `yaml:"listen_addr"`
+	URL          string             `yaml:"url"`
+	Storage      store.Store        `yaml:"-"`
 }
 
 func New(cfg Config, webFS fs.FS) (backend *WebBackend, err error) {
@@ -34,9 +38,10 @@ func New(cfg Config, webFS fs.FS) (backend *WebBackend, err error) {
 		panic("missing listen addr")
 	}
 	w := WebBackend{
-		l:   cfg.Logger,
-		al:  cfg.AccessLogger,
-		cfg: &cfg,
+		l:     cfg.Logger,
+		al:    cfg.AccessLogger,
+		cfg:   &cfg,
+		store: cfg.Storage,
 	}
 	if cfg.AccessLogger == nil {
 		w.al = w.l //.Named("accesslog")
@@ -76,6 +81,8 @@ func New(cfg Config, webFS fs.FS) (backend *WebBackend, err error) {
 			"title": c.Request.RemoteAddr,
 		})
 	})
+	r.POST("/u/:name", w.Store)
+	r.GET("/d/:name", w.Get)
 	r.NoRoute(func(c *gin.Context) {
 		c.HTML(http.StatusNotFound, "404.tmpl", gin.H{
 			"notfound": c.Request.URL.Path,

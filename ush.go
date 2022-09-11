@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"fmt"
+	"github.com/XANi/toolbox/project-templates/go-gin-embedded/store/file"
 	"github.com/XANi/toolbox/project-templates/go-gin-embedded/web"
 	"github.com/efigence/go-mon"
 	"github.com/urfave/cli"
@@ -98,9 +99,11 @@ func main() {
 			cli.ShowAppHelp(c)
 			os.Exit(1)
 		}
-
-		if c.String("data-dir") == "!tmp" {
-			dir, err := os.MkdirTemp(os.TempDir(), "ush"+fmt.Sprintf("-%d-", os.Getpid()))
+		debug = c.Bool("debug")
+		dir := c.String("data-dir")
+		if dir == "!tmp" {
+			var err error
+			dir, err = os.MkdirTemp(os.TempDir(), "ush"+fmt.Sprintf("-%d-", os.Getpid()))
 			if err != nil {
 				log.Panicf("cannot create tmpdir [%s]: %s and different data dir was not specified in cmdline", dir, err)
 			}
@@ -113,12 +116,26 @@ func main() {
 				}
 			}
 		} else {
-			log.Infof("data dir:", c.String("data-dir"))
+			log.Infof("data dir: %s", dir)
 		}
-		debug = c.Bool("debug")
+		storage, err := file.New(file.Config{
+			RootDir: dir,
+			Logger:  log,
+		})
+		if err != nil {
+			log.Panicf("error opening storage: %s", err)
+		}
+		accessLogCfg := zap.NewDevelopmentConfig()
+		accessLogCfg.EncoderConfig.TimeKey = "T"
+		accessLogCfg.EncoderConfig.LevelKey = ""
+		accessLogCfg.EncoderConfig.NameKey = ""
+		accessLogCfg.EncoderConfig.CallerKey = ""
+		accessLog, _ := accessLogCfg.Build()
 		w, err := web.New(web.Config{
-			Logger:     log,
-			ListenAddr: c.String("listen-addr"),
+			Logger:       log,
+			AccessLogger: accessLog.Sugar(),
+			ListenAddr:   c.String("listen-addr"),
+			Storage:      storage,
 		}, webContent)
 		if err != nil {
 			log.Panicf("error starting web listener: %s", err)
