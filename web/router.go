@@ -87,7 +87,7 @@ func New(cfg Config, webFS fs.FS) (backend *WebBackend, err error) {
 			"notfound": c.Request.URL.Path,
 		})
 	})
-
+	mon.GlobalStatus.Update(mon.Ok, "up")
 	return &w, nil
 }
 
