@@ -20,6 +20,7 @@ var log *zap.SugaredLogger
 var debug = true
 
 // /* embeds with all files, just dir/ ignores files starting with _ or .
+//
 //go:embed static templates
 var webContent embed.FS
 var stopper = make(map[string]func(), 0)
@@ -140,8 +141,9 @@ func main() {
 		accessLogCfg.EncoderConfig.CallerKey = ""
 		accessLog, _ := accessLogCfg.Build()
 		w, err := web.New(web.Config{
-			Logger:       log,
-			AccessLogger: accessLog.Sugar(),
+			Logger: log,
+			//AccessLogger: accessLog.Sugar().With(zap.Stack("accesslog")),
+			AccessLogger: accessLog.Sugar().Named("accesslog"),
 			ListenAddr:   c.String("listen-addr"),
 			Storage:      storage,
 		}, webContent)

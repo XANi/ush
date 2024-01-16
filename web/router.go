@@ -60,7 +60,6 @@ func New(cfg Config, webFS fs.FS) (backend *WebBackend, err error) {
 	// basic logging to stdout
 	//r.Use(gin.LoggerWithWriter(os.Stdout))
 	r.Use(gin.Recovery())
-
 	// monitoring endpoints
 	r.GET("/_status/health", gin.WrapF(mon.HandleHealthcheck))
 	r.HEAD("/_status/health", gin.WrapF(mon.HandleHealthcheck))
