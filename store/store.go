@@ -3,6 +3,9 @@ package store
 import "io"
 
 type Store interface {
-	Store(path string) (io.WriteCloser, error)
-	Read(path string) (io.ReadSeekCloser, error)
+	Store(path string, meta FileMeta) (io.WriteCloser, error)
+	Read(path string) (io.ReadSeekCloser, FileMeta, error)
+}
+type FileMeta struct {
+	Filename string `json:"filename"`
 }

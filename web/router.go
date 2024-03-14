@@ -20,6 +20,7 @@ type WebBackend struct {
 	r     *gin.Engine
 	store store.Store
 	cfg   *Config
+	token *UserTokenGenerator
 }
 
 type Config struct {
@@ -42,6 +43,7 @@ func New(cfg Config, webFS fs.FS) (backend *WebBackend, err error) {
 		al:    cfg.AccessLogger,
 		cfg:   &cfg,
 		store: cfg.Storage,
+		token: NewUserTokenGenerator(),
 	}
 	if cfg.AccessLogger == nil {
 		w.al = w.l //.Named("accesslog")
@@ -80,8 +82,8 @@ func New(cfg Config, webFS fs.FS) (backend *WebBackend, err error) {
 			"title": c.Request.RemoteAddr,
 		})
 	})
-	r.POST("/u/:name", w.Store)
-	r.GET("/d/:name", w.Get)
+	r.POST("/u/*name", w.Store)
+	r.GET("/d/*name", w.Get)
 	r.NoRoute(func(c *gin.Context) {
 		c.HTML(http.StatusNotFound, "404.tmpl", gin.H{
 			"notfound": c.Request.URL.Path,

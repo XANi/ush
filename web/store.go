@@ -2,16 +2,36 @@ package web
 
 import (
 	"fmt"
+	"github.com/XANi/toolbox/project-templates/go-gin-embedded/store"
 	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
 func (b *WebBackend) Store(c *gin.Context) {
 	path := c.Param("name")
-	writer, err := b.store.Store(path)
+	pathS := strings.Split(path, "/")
+	if len(pathS) < 1 {
+		c.String(http.StatusBadRequest, "path needs filename in it")
+		return
+	}
+	fileInfo := store.FileMeta{
+		Filename: pathS[len(pathS)-1],
+	}
+	// for single file, we will just anonymize file name
+	if len(pathS) == 1 {
+		path = b.token.GetToken(path, c.Request)
+	} else {
+		base := b.token.GetToken(
+			strings.Join(pathS[0:len(pathS)-1], "/"),
+			c.Request)
+		path = base + "/" + pathS[len(pathS)-1]
+	}
+
+	writer, err := b.store.Store(path, fileInfo)
 	defer c.Request.Body.Close()
 	if err != nil {
 		c.String(http.StatusInternalServerError, "server error")
@@ -66,7 +86,8 @@ func (b *WebBackend) GetResourceURL(c *gin.Context, path string, key ...string) 
 
 func (b *WebBackend) Get(c *gin.Context) {
 	path := c.Param("name")
-	read, err := b.store.Read(path)
+	read, fm, err := b.store.Read(path)
+	_ = fm
 	if err != nil {
 		c.String(http.StatusNotFound, "server error")
 		b.l.Warnf("could not read %s:%s", path, err)

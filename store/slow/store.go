@@ -14,13 +14,13 @@ func New(backendStore store.Store) *Slow {
 	return &Slow{store: backendStore}
 }
 
-func (f *Slow) Store(path string) (io.WriteCloser, error) {
-	rc, err := f.store.Store(path)
+func (f *Slow) Store(path string, fm store.FileMeta) (io.WriteCloser, error) {
+	rc, err := f.store.Store(path, fm)
 	return NewSlowWriteCloser(rc), err
 }
-func (f *Slow) Read(path string) (io.ReadSeekCloser, error) {
-	rc, err := f.store.Read(path)
-	return NewSlowReadSeekCloser(rc), err
+func (f *Slow) Read(path string) (io.ReadSeekCloser, store.FileMeta, error) {
+	rc, fm, err := f.store.Read(path)
+	return NewSlowReadSeekCloser(rc), fm, err
 }
 
 type SlowReadSeekCloser struct {

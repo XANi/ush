@@ -3,11 +3,15 @@ package file
 import (
 	crand "crypto/rand"
 	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"github.com/XANi/toolbox/project-templates/go-gin-embedded/store"
 	"go.uber.org/zap"
 	"io"
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -30,36 +34,74 @@ type File struct {
 }
 
 func New(c Config) (*File, error) {
-	err := os.Mkdir(c.RootDir+"/data", 0o700)
+	var err error
+	if _, err := os.Stat(c.RootDir + "/data"); os.IsNotExist(err) {
+		err = os.Mkdir(c.RootDir+"/data", 0o700)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return &File{root: c.RootDir + "/data"}, nil
 }
 
-func (f *File) Store(path string) (io.WriteCloser, error) {
+func (f *File) Store(path string, fileMeta store.FileMeta) (io.WriteCloser, error) {
 	sanitizedName := sanitize(path)
+	if len(sanitizedName) > 250 {
+		return nil, fmt.Errorf("too long name")
+	}
 	f_path := f.root + "/" + sanitizedName
+	ss := strings.Split(sanitizedName, "/")
+	if len(ss) > 1 {
+		f_dir := f.root + "/" + strings.Join(ss[0:len(ss)-1], "/")
+		if _, err := os.Stat(f_dir); os.IsNotExist(err) {
+			err := os.MkdirAll(f_dir, 0o700)
+			if err != nil {
+				return nil, fmt.Errorf("could not make dir %w", err)
+			}
+		}
+	}
 	f_path_tmp := f_path + ".tmp" + strconv.Itoa(rand.Int()) // hide the tmpfile during upload
 	file, err := os.OpenFile(f_path_tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
+		return nil, fmt.Errorf("could not open file for write: %w", err)
+	}
+	fmFd, err := os.OpenFile(f_path+".meta", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("could not open filemeta for write: %w", err)
+	}
+	enc := json.NewEncoder(fmFd)
+	err = enc.Encode(&fileMeta)
+	fmFd.Sync()
+	fmFd.Close()
+	if err != nil {
+		file.Close()
 		return nil, err
 	}
 	return &tmpWriteCloser{
 		tmpFilename: f_path_tmp,
-		dstFilename: f_path,
+		dstFilename: f_path + ".data",
 		i:           file,
-	}, nil
+	}, err
 }
 
-func (f *File) Read(path string) (io.ReadSeekCloser, error) {
+func (f *File) Read(path string) (fd io.ReadSeekCloser, fileMeta store.FileMeta, err error) {
 	sanitizedName := sanitize(path)
 	f_path := f.root + "/" + sanitizedName
-	file, err := os.OpenFile(f_path, os.O_RDONLY, 0o500)
+	file, err := os.OpenFile(f_path+".data", os.O_RDONLY, 0o500)
 	if err != nil {
-		return nil, err
+		return nil, fileMeta, fmt.Errorf("could not find file %s:%s", f_path, err)
 	}
-	return file, err
+	filemeta_raw, err := os.OpenFile(f_path+".meta", os.O_RDONLY, 0o500)
+	if err != nil {
+		return file, fileMeta, fmt.Errorf("could not open metadata: %s", err)
+	}
+	fm_j := json.NewDecoder(filemeta_raw)
+	err = fm_j.Decode(&fileMeta)
+	if err != nil {
+		return file, fileMeta, fmt.Errorf("could not decode metadata: %s", err)
+	}
+	filemeta_raw.Close()
+	return file, fileMeta, err
 }
 
 func sanitize(s string) string {
