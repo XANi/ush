@@ -10,7 +10,7 @@ Small file sharing program
 
 usage:
 
-    -> ᛯ curl --data-binary @1M http://127.0.0.1:3001/u/filename
+    -> ᛯ curl --upload-file 1M http://127.0.0.1:3001/u/filename
     download URL: http://127.0.0.1:3001/d/filename
 
 then to download just use any HTTP client

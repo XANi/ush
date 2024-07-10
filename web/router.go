@@ -83,6 +83,7 @@ func New(cfg Config, webFS fs.FS) (backend *WebBackend, err error) {
 		})
 	})
 	r.POST("/u/*name", w.Store)
+	r.PUT("/u/*name", w.Store)
 	r.GET("/d/*name", w.Get)
 	r.NoRoute(func(c *gin.Context) {
 		c.HTML(http.StatusNotFound, "404.tmpl", gin.H{
